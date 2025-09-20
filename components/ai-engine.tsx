@@ -693,7 +693,7 @@ export function AIEngine() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant={slot.type === "lab" ? "default" : "secondary"}>{slot.type}</Badge>
+                  <Badge variant={slot.type === "lab" ? "secondary" : "secondary"}>{slot.type}</Badge>
                 </div>
               )) || <p className="text-center text-muted-foreground py-8">Generate a timetable to see results here</p>}
             </TabsContent>
