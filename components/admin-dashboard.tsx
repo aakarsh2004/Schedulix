@@ -46,25 +46,23 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm h-16 flex items-center">
-        <div className="container mx-auto px-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-            <p className="text-muted-foreground text-sm">Welcome back, {user?.name}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary" className="px-3 py-1">
-              {user?.role.toUpperCase()}
-            </Badge>
-            <Button variant="outline" size="sm" onClick={logout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
-          </div>
+      <header className="h-16 border-b bg-card/50 backdrop-blur-sm flex items-center px-6 justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+          <p className="text-muted-foreground text-sm">Welcome back, {user?.name}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="px-3 py-1">
+            {user?.role?.toUpperCase()}
+          </Badge>
+          <Button variant="outline" size="sm" onClick={logout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
         </div>
       </header>
 
-      {/* Body: Sidebar + Main */}
+      {/* Body */}
       <div className="flex flex-1">
         {/* Sidebar */}
         <aside className="w-64 border-r bg-card/50 p-4">
@@ -84,18 +82,20 @@ export function AdminDashboard() {
         {/* Main Content */}
         <main className="flex-1 p-8 overflow-y-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsContent value="overview">{/* overview content */}</TabsContent>
-            <TabsContent value="data"><DataManagement /></TabsContent>
-            <TabsContent value="ai-engine"><AIEngine /></TabsContent>
-            <TabsContent value="analytics"><AnalyticsDashboard /></TabsContent>
-            <TabsContent value="notifications"><NotificationSystem /></TabsContent>
-            <TabsContent value="export"><ExportSystem /></TabsContent>
-            <TabsContent value="feedback">{/* feedback content */}</TabsContent>
+            <TabsContent value="overview">
+              {/* put your overview content here */}
+            </TabsContent>
+            <TabsContent value="data">{/* <DataManagement /> */}</TabsContent>
+            <TabsContent value="ai-engine">{/* <AIEngine /> */}</TabsContent>
+            <TabsContent value="analytics">{/* <AnalyticsDashboard /> */}</TabsContent>
+            <TabsContent value="notifications">{/* <NotificationSystem /> */}</TabsContent>
+            <TabsContent value="export">{/* <ExportSystem /> */}</TabsContent>
+            <TabsContent value="feedback">
+              {/* Feedback UI */}
+            </TabsContent>
           </Tabs>
         </main>
       </div>
     </div>
-
-
   )
 }
