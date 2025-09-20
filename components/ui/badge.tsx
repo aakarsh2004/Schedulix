@@ -10,15 +10,31 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          'border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90',
+          'bg-primary text-primary-foreground border border-transparent rounded-md shadow-sm ' +
+          'transition-colors duration-200 ease-in-out ' +
+          'hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ' +
+          'disabled:opacity-50 disabled:pointer-events-none',
+
         secondary:
-          'border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90',
+          'bg-secondary text-secondary-foreground border border-transparent rounded-md shadow-sm ' +
+          'transition-colors duration-200 ease-in-out ' +
+          'hover:bg-secondary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/50 ' +
+          'disabled:opacity-50 disabled:pointer-events-none',
+
         destructive:
-          'border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
+          'bg-destructive text-destructive-foreground border border-transparent rounded-md shadow-sm ' +
+          'transition-colors duration-200 ease-in-out ' +
+          'hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 ' +
+          'disabled:opacity-50 disabled:pointer-events-none',
+
         outline:
-          'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
+          'border border-input bg-transparent text-foreground rounded-md shadow-sm ' +
+          'transition-colors duration-200 ease-in-out ' +
+          'hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ' +
+          'disabled:opacity-50 disabled:pointer-events-none',
       },
-    },
+    }
+    ,
     defaultVariants: {
       variant: 'default',
     },

@@ -678,40 +678,8 @@ export function AIEngine() {
         <CardContent>
           <Tabs defaultValue="grid" className="w-full">
             <TabsList>
-              <TabsTrigger value="grid">Grid View</TabsTrigger>
               <TabsTrigger value="list">List View</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="grid" className="space-y-4">
-              <div className="grid gap-4">
-                {sampleTimetable.map((day, dayIndex) => (
-                  <Card key={dayIndex} className="border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">{day.day}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {day.slots.map((slot, slotIndex) => (
-                        <div key={slotIndex} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="min-w-[60px]">
-                              {slot.time}
-                            </Badge>
-                            <div>
-                              <p className="font-medium">{slot.course}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {slot.faculty} • {slot.room}
-                              </p>
-                            </div>
-                          </div>
-                          <Badge variant={slot.type === "lab" ? "default" : "secondary"}>{slot.type}</Badge>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
             <TabsContent value="list" className="space-y-2">
               {result?.timetable.map((slot, index) => (
                 <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
