@@ -44,32 +44,30 @@ export function AdminDashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-              <p className="text-muted-foreground">Welcome back, {user?.name}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="px-3 py-1">
-                {user?.role.toUpperCase()}
-              </Badge>
-              <Button variant="outline" size="sm" onClick={logout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+      <header className="border-b bg-card/50 backdrop-blur-sm h-16 flex items-center">
+        <div className="container mx-auto px-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+            <p className="text-muted-foreground text-sm">Welcome back, {user?.name}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="px-3 py-1">
+              {user?.role.toUpperCase()}
+            </Badge>
+            <Button variant="outline" size="sm" onClick={logout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
 
-      {/* Main layout: sidebar + content */}
-      <div className="flex">
+      {/* Body: Sidebar + Main */}
+      <div className="flex flex-1">
         {/* Sidebar */}
-        <aside className="w-64 border-r bg-card/50 min-h-screen p-4">
+        <aside className="w-64 border-r bg-card/50 p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical">
             <TabsList className="flex flex-col w-full gap-2">
               <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -84,19 +82,20 @@ export function AdminDashboard() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-8 overflow-y-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsContent value="overview">{/* your overview content */}</TabsContent>
+            <TabsContent value="overview">{/* overview content */}</TabsContent>
             <TabsContent value="data"><DataManagement /></TabsContent>
             <TabsContent value="ai-engine"><AIEngine /></TabsContent>
             <TabsContent value="analytics"><AnalyticsDashboard /></TabsContent>
             <TabsContent value="notifications"><NotificationSystem /></TabsContent>
             <TabsContent value="export"><ExportSystem /></TabsContent>
-            <TabsContent value="feedback">{/* feedback card */}</TabsContent>
+            <TabsContent value="feedback">{/* feedback content */}</TabsContent>
           </Tabs>
         </main>
       </div>
     </div>
+
 
   )
 }
