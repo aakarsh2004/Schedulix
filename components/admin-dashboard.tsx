@@ -1,10 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Users,
@@ -24,10 +23,25 @@ import { AIEngine } from "@/components/ai-engine"
 import { AnalyticsDashboard } from "@/components/analytics-dashboard"
 import { NotificationSystem } from "@/components/notification-system"
 import { ExportSystem } from "@/components/export-system"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export function AdminDashboard() {
   const { user, logout } = useAuth()
   const [activeTab, setActiveTab] = useState("overview")
+
+  useEffect(() => {
+    const handler = () => setActiveTab("ai-engine")
+    window.addEventListener("navigate-to-ai-engine", handler)
+    return () => window.removeEventListener("navigate-to-ai-engine", handler)
+  }, [])
 
   const stats = [
     { label: "Total Faculty", value: "45", icon: Users, color: "bg-blue-500" },
@@ -45,38 +59,49 @@ export function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-              <p className="text-muted-foreground">Welcome back, {user?.name}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="px-3 py-1">
-                {user?.role.toUpperCase()}
-              </Badge>
-              <Button variant="outline" size="sm" onClick={logout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        {/* Header */}
+        <header className="border-b bg-card/50 backdrop-blur-sm">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <TabsList className="hidden md:flex bg-transparent border rounded-lg p-1">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="data">Data Management</TabsTrigger>
+                <TabsTrigger value="ai-engine">AI Engine</TabsTrigger>
+                <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                <TabsTrigger value="notifications">Notifications</TabsTrigger>
+                <TabsTrigger value="export">Export</TabsTrigger>
+                <TabsTrigger value="feedback">Feedback</TabsTrigger>
+              </TabsList>
+
+              <div className="flex items-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="outline-none" aria-label="Open admin menu">
+                    <Avatar className="h-8 w-8 ring-1 ring-border">
+                      {/* You can plug an image here if available */}
+                      <AvatarImage alt="Admin avatar" src="admin-avatar.png" />
+                      <AvatarFallback className="text-xs">AD</AvatarFallback>
+                    </Avatar>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={8} className="w-56">
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                      Admin ID: {user?.id || "admin.demo"}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="data">Data Management</TabsTrigger>
-            <TabsTrigger value="ai-engine">AI Engine</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="export">Export</TabsTrigger>
-            <TabsTrigger value="feedback">Feedback</TabsTrigger>
-          </TabsList>
+        <div className="container mx-auto px-4 py-8">
+          {/* Previously: <Tabs value={activeTab} onValueChange={setActiveTab}> */}
+          {/* Previously: <TabsList className="grid w-full grid-cols-7"> ... </TabsList> */}
 
           <TabsContent value="overview" className="space-y-8">
             {/* Stats Grid */}
@@ -233,8 +258,8 @@ export function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
     </div>
   )
 }

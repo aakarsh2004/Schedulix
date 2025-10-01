@@ -1,113 +1,24 @@
 "use client"
 
+import { useEffect } from "react"
 import { useState } from "react"
+import { CheckCircle, AlertCircle, Download, FileDown, Share2, GridIcon, ListIcon, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Brain, Play, CheckCircle, AlertCircle, Zap, Settings, Download } from "lucide-react"
-
-interface TimetableSlot {
-  id: string
-  day: string
-  time: string
-  course: string
-  faculty: string
-  room: string
-  type: "lecture" | "lab" | "tutorial"
-  year: number
-  semester: number
-}
-
-interface GenerationResult {
-  success: boolean
-  conflicts: number
-  efficiency: number
-  facultyUtilization: number
-  roomUtilization: number
-  warnings: string[]
-  timetable: TimetableSlot[]
-}
-
-interface UniversityTimetableSlot {
-  courseCode: string
-  faculty: string
-  type: "T" | "Lab" | "Project Lab"
-  semester: "III" | "V" | "VII"
-  isExtended?: boolean // For multi-period sessions
-  extendedPeriods?: number // Number of periods this session spans
-}
-
-interface UniversityMasterTimetable {
-  [day: string]: {
-    [period: string]: {
-      [semester: string]: UniversityTimetableSlot | null
-    }
-  }
-}
-
-const sampleTimetable = [
-  {
-    day: "Monday",
-    slots: [
-      { id: "1", day: "Monday", time: "9:00–10:00", course: "MDS-24215", faculty: "DD", room: "A101", type: "lecture" },
-      {
-        id: "2",
-        day: "Monday",
-        time: "10:00–11:00",
-        course: "MDS-24287",
-        faculty: "KSY",
-        room: "A102",
-        type: "lecture",
-      },
-      { id: "3", day: "Monday", time: "11:00–12:00", course: "MDS-313", faculty: "JK", room: "A103", type: "lecture" },
-      { id: "4", day: "Monday", time: "12:00–1:00", course: "MDS-314", faculty: "MD", room: "A104", type: "lecture" },
-      { id: "5", day: "Monday", time: "2:30–3:30", course: "MDS-315", faculty: "PU", room: "A105", type: "lab" },
-      { id: "6", day: "Monday", time: "3:30–4:30", course: "MDS-316", faculty: "RB", room: "A106", type: "lab" },
-      { id: "7", day: "Monday", time: "4:30–5:30", course: "MDS-359", faculty: "SMY", room: "A107", type: "tutorial" },
-    ],
-  },
-  {
-    day: "Tuesday",
-    slots: [
-      {
-        id: "8",
-        day: "Tuesday",
-        time: "9:00–10:00",
-        course: "MDS-24287",
-        faculty: "CKV",
-        room: "A108",
-        type: "lecture",
-      },
-      { id: "9", day: "Tuesday", time: "10:00–11:00", course: "MDS-315", faculty: "DD", room: "A109", type: "lecture" },
-      {
-        id: "10",
-        day: "Tuesday",
-        time: "11:00–12:00",
-        course: "MDS-316",
-        faculty: "JK",
-        room: "A110",
-        type: "lecture",
-      },
-      { id: "11", day: "Tuesday", time: "12:00–1:00", course: "MDS-359", faculty: "SD", room: "A111", type: "lecture" },
-      { id: "12", day: "Tuesday", time: "2:30–3:30", course: "MDS-24215", faculty: "KSY", room: "A112", type: "lab" },
-      { id: "13", day: "Tuesday", time: "3:30–4:30", course: "MDS-24287", faculty: "MD", room: "A113", type: "lab" },
-      {
-        id: "14",
-        day: "Tuesday",
-        time: "4:30–5:30",
-        course: "MDS-313",
-        faculty: "RRR",
-        room: "A114",
-        type: "tutorial",
-      },
-    ],
-  },
-  // Additional days can be added here
-]
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 
 export function AIEngine() {
   const [isGenerating, setIsGenerating] = useState(false)
@@ -117,300 +28,114 @@ export function AIEngine() {
   const [selectedBranch, setSelectedBranch] = useState<string>("")
   const [showBranchSelection, setShowBranchSelection] = useState(false)
   const [universityTimetable, setUniversityTimetable] = useState<UniversityMasterTimetable | null>(null)
+  const [showPreValidation, setShowPreValidation] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [hasValidationErrors, setHasValidationErrors] = useState(false)
+  const [openSetup, setOpenSetup] = useState(false)
+  const [selectedSemester, setSelectedSemester] = useState<string>("Sem 3")
+  const [prevalidationActive, setPrevalidationActive] = useState(false)
+  const [steps, setSteps] = useState<Array<{ name: string; status: "pending" | "running" | "done" | "issues" }>>([
+    { name: "Conflict Graph Generation", status: "pending" },
+    { name: "Faculty Load Matrix", status: "pending" },
+    { name: "Room-to-Student Ratio Check", status: "pending" },
+    { name: "Build Slot Grid", status: "pending" },
+  ])
+  const [overallProgress, setOverallProgress] = useState(0)
+  const [conflicts, setConflicts] = useState<ConflictItem[]>([])
+  const [selectedForBatch, setSelectedForBatch] = useState<Record<number, boolean>>({})
+  const [applyingFix, setApplyingFix] = useState(false)
+  const [generatedReady, setGeneratedReady] = useState(false)
+  const [changesApplied, setChangesApplied] = useState(0)
 
-  const branches = [
-    "Computer Science Engineering",
-    "Information Technology",
-    "Electronics & Communication",
-    "Mechanical Engineering",
-    "Civil Engineering",
-    "Electrical Engineering",
+  const branches = ["Branch A", "Branch B", "Branch C"] // Mock branches data
+  const semesterOptions = ["Sem 1", "Sem 2", "Sem 3", "Sem 4"]
+  const sampleConflicts: ConflictItem[] = [
+    {
+      id: 1,
+      issue: "Teacher Double-Booked",
+      severity: "High",
+      entities: "Dr. Priya Sharma • Machine Learning & Data Analytics • Slot T2 (Mon 10:00–11:00)",
+      proposed: "Reassign Machine Learning to Slot T9 (Thu 14:00–15:00)",
+      detail:
+        "Dr. Priya Sharma is assigned to Machine Learning and Data Analytics at Slot T2 (Mon 10:00–11:00) in two rooms.",
+    },
+    {
+      id: 2,
+      issue: "Room Overbooked",
+      severity: "High",
+      entities: "Room R101 • CSE-A & ECE-B • Slot T4 (Tue 13:00–14:00)",
+      proposed: "Move CSE-A to R201 (capacity 80) at same slot",
+      detail: "R101 has CSE-A and ECE-B at T4; capacity 40, combined students 72.",
+    },
+    {
+      id: 3,
+      issue: "Insufficient Capacity",
+      severity: "Medium",
+      entities: "Room R304 • EE-III (48 students)",
+      proposed: "Split group or move to R210 (cap 60)",
+      detail: "R304 capacity 30 assigned to EE-III (48 students).",
+    },
+    {
+      id: 4,
+      issue: "Faculty Max Hours Exceeded",
+      severity: "Medium",
+      entities: "Prof. Amit Singh • 26h/week > 18h/week",
+      proposed: "Shift low-priority slots to adjacent faculty; reduce to ≤18h",
+      detail: "Assigned 26h/week; max is 18h/week.",
+    },
+    {
+      id: 5,
+      issue: "Student Elective Clash",
+      severity: "Low",
+      entities: "Group G2 • Elective X & Elective Y • Slot T7",
+      proposed: "Reschedule Elective Y to T11",
+      detail: "Electives overlap at T7 for Group G2.",
+    },
+    {
+      id: 6,
+      issue: "Back-to-Back Impossible Transition",
+      severity: "Low",
+      entities: "Dr. Rajesh Kumar • consecutive slots • buildings 800m apart",
+      proposed: "Move one slot to next adjacent timeslot",
+      detail: "Two consecutive slots far apart with no transition time.",
+    },
   ]
 
-  const generateUniversityTimetable = (): UniversityMasterTimetable => {
-    const periods = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    const semesters = ["III", "V", "VII"]
+  const performPreValidation = () => {
+    const errors: string[] = []
 
-    const timetableData: UniversityMasterTimetable = {}
-
-    // Initialize empty timetable
-    days.forEach((day) => {
-      timetableData[day] = {}
-      periods.forEach((period) => {
-        timetableData[day][period] = {}
-        semesters.forEach((semester) => {
-          timetableData[day][period][semester] = null
-        })
-      })
-    })
-
-    // Course codes and faculty as specified
-    const courses = [
-      "MDS-24215",
-      "MDS-24287",
-      "MDS-313",
-      "MDS-314",
-      "MDS-315",
-      "MDS-316",
-      "MDS-359",
-      "HUM-451",
-      "ME-351",
+    // Mock validation checks
+    const mockErrors = [
+      "Faculty 'Dr. Smith' has overlapping time preferences",
+      "Room 'Lab-101' capacity insufficient for Course 'Database Lab' (50 students)",
+      "Missing faculty assignment for Course 'Advanced Algorithms'",
     ]
-    const faculty = ["DD", "JK", "SD", "KSY", "MD", "RRR", "PU", "RB", "SMY", "CKV"]
 
-    // Fill Monday
-    timetableData["Monday"]["I"]["III"] = { courseCode: "MDS-24215", faculty: "DD", type: "T", semester: "III" }
-    timetableData["Monday"]["I"]["V"] = { courseCode: "MDS-313", faculty: "JK", type: "T", semester: "V" }
-    timetableData["Monday"]["I"]["VII"] = { courseCode: "HUM-451", faculty: "SD", type: "T", semester: "VII" }
+    // Simulate random validation results
+    const hasErrors = Math.random() > 0.7 // 30% chance of errors
 
-    timetableData["Monday"]["II"]["III"] = { courseCode: "MDS-24287", faculty: "KSY", type: "T", semester: "III" }
-    timetableData["Monday"]["II"]["V"] = { courseCode: "MDS-314", faculty: "MD", type: "T", semester: "V" }
-    timetableData["Monday"]["II"]["VII"] = { courseCode: "ME-351", faculty: "RRR", type: "T", semester: "VII" }
-
-    timetableData["Monday"]["III"]["III"] = { courseCode: "MDS-315", faculty: "PU", type: "T", semester: "III" }
-    timetableData["Monday"]["III"]["V"] = { courseCode: "MDS-316", faculty: "RB", type: "T", semester: "V" }
-    timetableData["Monday"]["III"]["VII"] = { courseCode: "MDS-359", faculty: "SMY", type: "T", semester: "VII" }
-
-    timetableData["Monday"]["IV"]["III"] = { courseCode: "HUM-451", faculty: "CKV", type: "T", semester: "III" }
-    timetableData["Monday"]["IV"]["V"] = { courseCode: "MDS-24215", faculty: "DD", type: "T", semester: "V" }
-    timetableData["Monday"]["IV"]["VII"] = { courseCode: "MDS-24287", faculty: "JK", type: "T", semester: "VII" }
-
-    // Period V is lunch break - leave empty
-
-    timetableData["Monday"]["VI"]["III"] = {
-      courseCode: "MDS-313",
-      faculty: "SD",
-      type: "Lab",
-      semester: "III",
-      isExtended: true,
-      extendedPeriods: 2,
-    }
-    timetableData["Monday"]["VII"]["III"] = {
-      courseCode: "MDS-313",
-      faculty: "SD",
-      type: "Lab",
-      semester: "III",
-      isExtended: false,
-    }
-    timetableData["Monday"]["VI"]["V"] = {
-      courseCode: "MDS-314",
-      faculty: "KSY",
-      type: "Project Lab",
-      semester: "V",
-      isExtended: true,
-      extendedPeriods: 2,
-    }
-    timetableData["Monday"]["VII"]["V"] = {
-      courseCode: "MDS-314",
-      faculty: "KSY",
-      type: "Project Lab",
-      semester: "V",
-      isExtended: false,
-    }
-    timetableData["Monday"]["VI"]["VII"] = { courseCode: "ME-351", faculty: "MD", type: "T", semester: "VII" }
-    timetableData["Monday"]["VII"]["VII"] = { courseCode: "MDS-315", faculty: "RRR", type: "T", semester: "VII" }
-
-    timetableData["Monday"]["VIII"]["III"] = { courseCode: "MDS-316", faculty: "PU", type: "T", semester: "III" }
-    timetableData["Monday"]["VIII"]["V"] = { courseCode: "MDS-359", faculty: "RB", type: "T", semester: "V" }
-    timetableData["Monday"]["VIII"]["VII"] = { courseCode: "HUM-451", faculty: "SMY", type: "T", semester: "VII" }
-
-    // Fill Tuesday
-    timetableData["Tuesday"]["I"]["III"] = { courseCode: "MDS-24287", faculty: "CKV", type: "T", semester: "III" }
-    timetableData["Tuesday"]["I"]["V"] = { courseCode: "MDS-315", faculty: "DD", type: "T", semester: "V" }
-    timetableData["Tuesday"]["I"]["VII"] = { courseCode: "MDS-316", faculty: "JK", type: "T", semester: "VII" }
-
-    timetableData["Tuesday"]["II"]["III"] = { courseCode: "MDS-359", faculty: "SD", type: "T", semester: "III" }
-    timetableData["Tuesday"]["II"]["V"] = { courseCode: "HUM-451", faculty: "KSY", type: "T", semester: "V" }
-    timetableData["Tuesday"]["II"]["VII"] = { courseCode: "ME-351", faculty: "MD", type: "T", semester: "VII" }
-
-    timetableData["Tuesday"]["III"]["III"] = { courseCode: "MDS-24215", faculty: "RRR", type: "T", semester: "III" }
-    timetableData["Tuesday"]["III"]["V"] = { courseCode: "MDS-24287", faculty: "PU", type: "T", semester: "V" }
-    timetableData["Tuesday"]["III"]["VII"] = { courseCode: "MDS-313", faculty: "RB", type: "T", semester: "VII" }
-
-    timetableData["Tuesday"]["IV"]["III"] = { courseCode: "MDS-314", faculty: "SMY", type: "T", semester: "III" }
-    timetableData["Tuesday"]["IV"]["V"] = { courseCode: "MDS-315", faculty: "CKV", type: "T", semester: "V" }
-    timetableData["Tuesday"]["IV"]["VII"] = { courseCode: "MDS-316", faculty: "DD", type: "T", semester: "VII" }
-
-    timetableData["Tuesday"]["VI"]["III"] = { courseCode: "MDS-359", faculty: "JK", type: "T", semester: "III" }
-    timetableData["Tuesday"]["VI"]["V"] = {
-      courseCode: "HUM-451",
-      faculty: "SD",
-      type: "Lab",
-      semester: "V",
-      isExtended: true,
-      extendedPeriods: 2,
-    }
-    timetableData["Tuesday"]["VII"]["V"] = {
-      courseCode: "HUM-451",
-      faculty: "SD",
-      type: "Lab",
-      semester: "V",
-      isExtended: false,
-    }
-    timetableData["Tuesday"]["VI"]["VII"] = {
-      courseCode: "ME-351",
-      faculty: "KSY",
-      type: "Project Lab",
-      semester: "VII",
-      isExtended: true,
-      extendedPeriods: 2,
-    }
-    timetableData["Tuesday"]["VII"]["VII"] = {
-      courseCode: "ME-351",
-      faculty: "KSY",
-      type: "Project Lab",
-      semester: "VII",
-      isExtended: false,
+    if (hasErrors) {
+      setValidationErrors(mockErrors.slice(0, Math.floor(Math.random() * 3) + 1))
+      setHasValidationErrors(true)
+    } else {
+      setValidationErrors([])
+      setHasValidationErrors(false)
     }
 
-    timetableData["Tuesday"]["VII"]["III"] = { courseCode: "MDS-24215", faculty: "MD", type: "T", semester: "III" }
-    timetableData["Tuesday"]["VIII"]["III"] = { courseCode: "MDS-24287", faculty: "RRR", type: "T", semester: "III" }
-    timetableData["Tuesday"]["VIII"]["V"] = { courseCode: "MDS-313", faculty: "PU", type: "T", semester: "V" }
-    timetableData["Tuesday"]["VIII"]["VII"] = { courseCode: "MDS-314", faculty: "RB", type: "T", semester: "VII" }
-
-    // Fill Wednesday
-    timetableData["Wednesday"]["I"]["III"] = { courseCode: "MDS-315", faculty: "SMY", type: "T", semester: "III" }
-    timetableData["Wednesday"]["I"]["V"] = { courseCode: "MDS-316", faculty: "CKV", type: "T", semester: "V" }
-    timetableData["Wednesday"]["I"]["VII"] = { courseCode: "MDS-359", faculty: "DD", type: "T", semester: "VII" }
-
-    timetableData["Wednesday"]["II"]["III"] = { courseCode: "HUM-451", faculty: "JK", type: "T", semester: "III" }
-    timetableData["Wednesday"]["II"]["V"] = { courseCode: "ME-351", faculty: "SD", type: "T", semester: "V" }
-    timetableData["Wednesday"]["II"]["VII"] = { courseCode: "MDS-24215", faculty: "KSY", type: "T", semester: "VII" }
-
-    timetableData["Wednesday"]["III"]["III"] = { courseCode: "MDS-24287", faculty: "MD", type: "T", semester: "III" }
-    timetableData["Wednesday"]["III"]["V"] = { courseCode: "MDS-313", faculty: "RRR", type: "T", semester: "V" }
-    timetableData["Wednesday"]["III"]["VII"] = { courseCode: "MDS-314", faculty: "PU", type: "T", semester: "VII" }
-
-    timetableData["Wednesday"]["IV"]["III"] = { courseCode: "MDS-315", faculty: "RB", type: "T", semester: "III" }
-    timetableData["Wednesday"]["IV"]["V"] = { courseCode: "MDS-316", faculty: "SMY", type: "T", semester: "V" }
-    timetableData["Wednesday"]["IV"]["VII"] = { courseCode: "MDS-359", faculty: "CKV", type: "T", semester: "VII" }
-
-    timetableData["Wednesday"]["VI"]["III"] = {
-      courseCode: "HUM-451",
-      faculty: "DD",
-      type: "Lab",
-      semester: "III",
-      isExtended: true,
-      extendedPeriods: 2,
-    }
-    timetableData["Wednesday"]["VII"]["III"] = {
-      courseCode: "HUM-451",
-      faculty: "DD",
-      type: "Lab",
-      semester: "III",
-      isExtended: false,
-    }
-    timetableData["Wednesday"]["VI"]["V"] = { courseCode: "ME-351", faculty: "JK", type: "T", semester: "V" }
-    timetableData["Wednesday"]["VI"]["VII"] = { courseCode: "MDS-24215", faculty: "SD", type: "T", semester: "VII" }
-
-    timetableData["Wednesday"]["VII"]["V"] = { courseCode: "MDS-24287", faculty: "KSY", type: "T", semester: "V" }
-    timetableData["Wednesday"]["VII"]["VII"] = { courseCode: "MDS-313", faculty: "MD", type: "T", semester: "VII" }
-
-    timetableData["Wednesday"]["VIII"]["III"] = { courseCode: "MDS-314", faculty: "RRR", type: "T", semester: "III" }
-    timetableData["Wednesday"]["VIII"]["V"] = { courseCode: "MDS-315", faculty: "PU", type: "T", semester: "V" }
-    timetableData["Wednesday"]["VIII"]["VII"] = { courseCode: "MDS-316", faculty: "RB", type: "T", semester: "VII" }
-
-    // Fill Thursday
-    timetableData["Thursday"]["I"]["III"] = { courseCode: "MDS-359", faculty: "SMY", type: "T", semester: "III" }
-    timetableData["Thursday"]["I"]["V"] = { courseCode: "HUM-451", faculty: "CKV", type: "T", semester: "V" }
-    timetableData["Thursday"]["I"]["VII"] = { courseCode: "ME-351", faculty: "DD", type: "T", semester: "VII" }
-
-    timetableData["Thursday"]["II"]["III"] = { courseCode: "MDS-24215", faculty: "JK", type: "T", semester: "III" }
-    timetableData["Thursday"]["II"]["V"] = { courseCode: "MDS-24287", faculty: "SD", type: "T", semester: "V" }
-    timetableData["Thursday"]["II"]["VII"] = { courseCode: "MDS-313", faculty: "KSY", type: "T", semester: "VII" }
-
-    timetableData["Thursday"]["III"]["III"] = { courseCode: "MDS-314", faculty: "MD", type: "T", semester: "III" }
-    timetableData["Thursday"]["III"]["V"] = { courseCode: "MDS-315", faculty: "RRR", type: "T", semester: "V" }
-    timetableData["Thursday"]["III"]["VII"] = { courseCode: "MDS-316", faculty: "PU", type: "T", semester: "VII" }
-
-    timetableData["Thursday"]["IV"]["III"] = { courseCode: "MDS-359", faculty: "RB", type: "T", semester: "III" }
-    timetableData["Thursday"]["IV"]["V"] = { courseCode: "HUM-451", faculty: "SMY", type: "T", semester: "V" }
-    timetableData["Thursday"]["IV"]["VII"] = { courseCode: "ME-351", faculty: "CKV", type: "T", semester: "VII" }
-
-    timetableData["Thursday"]["VI"]["III"] = { courseCode: "MDS-24215", faculty: "DD", type: "T", semester: "III" }
-    timetableData["Thursday"]["VI"]["V"] = {
-      courseCode: "MDS-24287",
-      faculty: "JK",
-      type: "Project Lab",
-      semester: "V",
-      isExtended: true,
-      extendedPeriods: 2,
-    }
-    timetableData["Thursday"]["VII"]["V"] = {
-      courseCode: "MDS-24287",
-      faculty: "JK",
-      type: "Project Lab",
-      semester: "V",
-      isExtended: false,
-    }
-    timetableData["Thursday"]["VI"]["VII"] = {
-      courseCode: "MDS-313",
-      faculty: "SD",
-      type: "Lab",
-      semester: "VII",
-      isExtended: true,
-      extendedPeriods: 2,
-    }
-    timetableData["Thursday"]["VII"]["VII"] = {
-      courseCode: "MDS-313",
-      faculty: "SD",
-      type: "Lab",
-      semester: "VII",
-      isExtended: false,
-    }
-
-    timetableData["Thursday"]["VII"]["III"] = { courseCode: "MDS-314", faculty: "KSY", type: "T", semester: "III" }
-    timetableData["Thursday"]["VIII"]["III"] = { courseCode: "MDS-315", faculty: "MD", type: "T", semester: "III" }
-    timetableData["Thursday"]["VIII"]["V"] = { courseCode: "MDS-316", faculty: "RRR", type: "T", semester: "V" }
-    timetableData["Thursday"]["VIII"]["VII"] = { courseCode: "MDS-359", faculty: "PU", type: "T", semester: "VII" }
-
-    // Fill Friday
-    timetableData["Friday"]["I"]["III"] = { courseCode: "HUM-451", faculty: "RB", type: "T", semester: "III" }
-    timetableData["Friday"]["I"]["V"] = { courseCode: "ME-351", faculty: "SMY", type: "T", semester: "V" }
-    timetableData["Friday"]["I"]["VII"] = { courseCode: "MDS-24215", faculty: "CKV", type: "T", semester: "VII" }
-
-    timetableData["Friday"]["II"]["III"] = { courseCode: "MDS-24287", faculty: "DD", type: "T", semester: "III" }
-    timetableData["Friday"]["II"]["V"] = { courseCode: "MDS-313", faculty: "JK", type: "T", semester: "V" }
-    timetableData["Friday"]["II"]["VII"] = { courseCode: "MDS-314", faculty: "SD", type: "T", semester: "VII" }
-
-    timetableData["Friday"]["III"]["III"] = { courseCode: "MDS-315", faculty: "KSY", type: "T", semester: "III" }
-    timetableData["Friday"]["III"]["V"] = { courseCode: "MDS-316", faculty: "MD", type: "T", semester: "V" }
-    timetableData["Friday"]["III"]["VII"] = { courseCode: "MDS-359", faculty: "RRR", type: "T", semester: "VII" }
-
-    timetableData["Friday"]["IV"]["III"] = { courseCode: "HUM-451", faculty: "PU", type: "T", semester: "III" }
-    timetableData["Friday"]["IV"]["V"] = { courseCode: "ME-351", faculty: "RB", type: "T", semester: "V" }
-    timetableData["Friday"]["IV"]["VII"] = { courseCode: "MDS-24215", faculty: "SMY", type: "T", semester: "VII" }
-
-    timetableData["Friday"]["VI"]["III"] = {
-      courseCode: "MDS-24287",
-      faculty: "CKV",
-      type: "Lab",
-      semester: "III",
-      isExtended: true,
-      extendedPeriods: 2,
-    }
-    timetableData["Friday"]["VII"]["III"] = {
-      courseCode: "MDS-24287",
-      faculty: "CKV",
-      type: "Lab",
-      semester: "III",
-      isExtended: false,
-    }
-    timetableData["Friday"]["VI"]["V"] = { courseCode: "MDS-313", faculty: "DD", type: "T", semester: "V" }
-    timetableData["Friday"]["VI"]["VII"] = { courseCode: "MDS-314", faculty: "JK", type: "T", semester: "VII" }
-
-    timetableData["Friday"]["VII"]["V"] = { courseCode: "MDS-315", faculty: "SD", type: "T", semester: "V" }
-    timetableData["Friday"]["VII"]["VII"] = { courseCode: "MDS-316", faculty: "KSY", type: "T", semester: "VII" }
-
-    timetableData["Friday"]["VIII"]["III"] = { courseCode: "MDS-359", faculty: "MD", type: "T", semester: "III" }
-    timetableData["Friday"]["VIII"]["V"] = { courseCode: "HUM-451", faculty: "RRR", type: "T", semester: "V" }
-    timetableData["Friday"]["VIII"]["VII"] = { courseCode: "ME-351", faculty: "PU", type: "T", semester: "VII" }
-
-    return timetableData
+    setShowPreValidation(true)
   }
 
   const generateTimetable = async () => {
+    // First perform pre-validation
+    performPreValidation()
+
+    // Wait for pre-validation to complete
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    if (hasValidationErrors) {
+      return // Stop if there are validation errors
+    }
+
     if (!selectedBranch) {
       setShowBranchSelection(true)
       return
@@ -420,6 +145,7 @@ export function AIEngine() {
     setProgress(0)
     setResult(null)
     setShowBranchSelection(false)
+    setShowPreValidation(false)
 
     const steps = [
       "Analyzing curriculum data...",
@@ -456,447 +182,659 @@ export function AIEngine() {
     setCurrentStep("Generation complete!")
   }
 
-  const getSemesterColor = (semester: "III" | "V" | "VII") => {
-    switch (semester) {
-      case "III":
-        return "bg-violet-100 text-violet-800 border-violet-200"
-      case "V":
-        return "bg-orange-100 text-orange-800 border-orange-200"
-      case "VII":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+  const handleTriggerAI = () => {
+    // prompt for branch if not selected, then proceed
+    if (!selectedBranch) {
+      setShowBranchSelection(true)
+    } else {
+      generateTimetable()
     }
   }
 
-  const getTypeIcon = (type: "T" | "Lab" | "Project Lab") => {
-    switch (type) {
-      case "T":
-        return "📚"
-      case "Lab":
-        return "🔬"
-      case "Project Lab":
-        return "🛠️"
-      default:
-        return "📚"
+  const runPrevalidation = async () => {
+    setPrevalidationActive(true)
+    setOverallProgress(0)
+    setGeneratedReady(false)
+    setConflicts([])
+    setSteps((prev) => prev.map((s) => ({ ...s, status: "pending" })))
+
+    for (let i = 0; i < steps.length; i++) {
+      setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: "running" } : s)))
+      // 900–1400ms per step
+      const delay = 900 + Math.floor(Math.random() * 500)
+      await new Promise((r) => setTimeout(r, delay))
+
+      // For demo: mark first two as done, third as issues, last as done
+      let status: "done" | "issues" = "done"
+      if (i === 2) status = "issues"
+      setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, status } : s)))
+      setOverallProgress(Math.round(((i + 1) / steps.length) * 100))
+    }
+
+    // If any step had issues, show conflicts
+    const hadIssues = steps.some((s, idx) => (idx === 2 ? true : false))
+    if (hadIssues) {
+      // show example conflicts
+      setConflicts(sampleConflicts)
     }
   }
+
+  const autocorrectSelected = async () => {
+    const ids = Object.entries(selectedForBatch)
+      .filter(([, v]) => v)
+      .map(([k]) => Number(k))
+    if (ids.length === 0) return
+    setApplyingFix(true)
+    await new Promise((r) => setTimeout(r, 700)) // 600–900ms
+    setConflicts((prev) => prev.filter((c) => !ids.includes(c.id)))
+    setChangesApplied((n) => n + ids.length)
+    setSelectedForBatch({})
+    setApplyingFix(false)
+  }
+
+  const autocorrectOne = async (id: number) => {
+    setApplyingFix(true)
+    await new Promise((r) => setTimeout(r, 700))
+    setConflicts((prev) => prev.filter((c) => c.id !== id))
+    setChangesApplied((n) => n + 1)
+    setApplyingFix(false)
+  }
+
+  const finalizeAfterFixes = async () => {
+    // re-run prevalidation (faster 600–900ms)
+    setPrevalidationActive(true)
+    setOverallProgress(0)
+    setSteps((prev) => prev.map((s) => ({ ...s, status: "pending" })))
+
+    for (let i = 0; i < steps.length; i++) {
+      setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: "running" } : s)))
+      const delay = 600 + Math.floor(Math.random() * 300)
+      await new Promise((r) => setTimeout(r, delay))
+      setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: "done" } : s)))
+      setOverallProgress(Math.round(((i + 1) / steps.length) * 100))
+    }
+
+    setPrevalidationActive(false)
+    setGeneratedReady(true)
+  }
+
+  const onCTAClick = () => {
+    setOpenSetup(true)
+  }
+
+  const startPrevalidation = async () => {
+    setOpenSetup(false)
+    await runPrevalidation()
+  }
+
+  useEffect(() => {
+    const handler = () => {
+      handleTriggerAI()
+    }
+    window.addEventListener("trigger-ai-generation", handler as EventListener)
+    return () => window.removeEventListener("trigger-ai-generation", handler as EventListener)
+  }, [selectedBranch])
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Brain className="h-6 w-6 text-primary" />
-            AI Timetable Generation Engine
-          </h2>
-          <p className="text-muted-foreground">Generate conflict-free timetables using advanced AI algorithms</p>
-        </div>
-        <Button onClick={generateTimetable} disabled={isGenerating} className="bg-primary hover:bg-primary/90">
-          {isGenerating ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Generating...
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4 mr-2" />
-              Generate Timetable
-            </>
-          )}
-        </Button>
+      <div className="flex justify-center">
+        <Card
+          className="w-full max-w-xl border-0 shadow-lg transition-transform duration-150 hover:scale-[1.02] hover:shadow-xl outline outline-1 outline-transparent hover:outline-primary/20"
+          role="button"
+          tabIndex={0}
+          onClick={onCTAClick}
+          onKeyDown={(e) => e.key === "Enter" && onCTAClick()}
+          aria-label="Generate AI Timetable"
+        >
+          <CardHeader className="text-center">
+            <CardTitle className="flex items-center justify-center gap-2">
+              <Wand2 className="h-5 w-5 text-primary" />
+              Generate AI Timetable
+            </CardTitle>
+            <CardDescription>AI-assisted timetable generation</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
 
-      {showBranchSelection && (
-        <Card className="border-0 shadow-lg bg-gradient-to-r from-primary/5 to-accent/5">
+      <Dialog open={openSetup} onOpenChange={setOpenSetup}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Branch</DialogTitle>
+            <DialogDescription>Choose inputs to start prevalidation</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Select Branch</label>
+                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select Branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((b) => (
+                      <SelectItem key={b} value={b}>
+                        {b}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Select Semester</label>
+                <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select Semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {semesterOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setOpenSetup(false)}>
+              Cancel
+            </Button>
+            <Button onClick={startPrevalidation}>Start Prevalidation</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {prevalidationActive && (
+        <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle>Select Branch</CardTitle>
-            <CardDescription>Choose the branch for timetable generation</CardDescription>
+            <CardTitle className="flex items-center gap-2">Prevalidation</CardTitle>
+            <CardDescription>Running checks on input constraints</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {branches.map((branch) => (
-                  <SelectItem key={branch} value={branch}>
-                    {branch}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              <Button onClick={generateTimetable} disabled={!selectedBranch} className="flex-1">
-                Continue Generation
-              </Button>
-              <Button variant="outline" onClick={() => setShowBranchSelection(false)}>
-                Cancel
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Engine Status */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-0 shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/10 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium">Engine Status</p>
-                <p className="text-sm text-muted-foreground">Ready & Optimized</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500/10 rounded-lg">
-                <Zap className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="font-medium">Algorithm</p>
-                <p className="text-sm text-muted-foreground">Genetic Algorithm + ML</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/10 rounded-lg">
-                <Settings className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="font-medium">Optimization</p>
-                <p className="text-sm text-muted-foreground">Multi-objective</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Generation Progress */}
-      {isGenerating && (
-        <Card className="border-0 shadow-lg bg-gradient-to-r from-primary/5 to-accent/5">
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Generating Timetable</h3>
-                <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-                {currentStep}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Generation Results */}
-      {result && (
-        <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              Generation Results
-            </CardTitle>
-            <CardDescription>Timetable generated successfully with optimization metrics</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-muted/30 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">{result.conflicts}</p>
-                <p className="text-sm text-muted-foreground">Conflicts</p>
-              </div>
-              <div className="text-center p-4 bg-muted/30 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">{result.efficiency}%</p>
-                <p className="text-sm text-muted-foreground">Efficiency</p>
-              </div>
-              <div className="text-center p-4 bg-muted/30 rounded-lg">
-                <p className="text-2xl font-bold text-purple-600">{result.facultyUtilization}%</p>
-                <p className="text-sm text-muted-foreground">Faculty Util.</p>
-              </div>
-              <div className="text-center p-4 bg-muted/30 rounded-lg">
-                <p className="text-2xl font-bold text-orange-600">{result.roomUtilization}%</p>
-                <p className="text-sm text-muted-foreground">Room Util.</p>
-              </div>
-            </div>
-
-            {/* Warnings */}
-            {result.warnings.length > 0 && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-1">
-                    <p className="font-medium">Optimization Warnings:</p>
-                    {result.warnings.map((warning, index) => (
-                      <p key={index} className="text-sm">
-                        • {warning}
-                      </p>
-                    ))}
+            <Progress value={overallProgress} className="h-2" />
+            <div className="space-y-2">
+              {steps.map((step, i) => (
+                <div key={step.name} className="flex items-center justify-between rounded-md border p-3">
+                  <div className="flex items-center gap-2">
+                    {step.status === "running" && (
+                      <div
+                        className="h-4 w-4 border-2 border-primary border-b-transparent rounded-full animate-spin"
+                        aria-label="In progress"
+                      />
+                    )}
+                    {step.status === "done" && <CheckCircle className="h-4 w-4 text-green-600" aria-hidden />}
+                    {step.status === "issues" && <AlertCircle className="h-4 w-4 text-red-600" aria-hidden />}
+                    <span className="text-sm font-medium">{step.name}</span>
                   </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <Button className="flex-1">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Approve & Finalize
-              </Button>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export PDF
-              </Button>
-              <Button variant="outline">
-                <Settings className="h-4 w-4 mr-2" />
-                Adjust Parameters
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Sample Timetable Preview */}
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle>Generated Timetable Preview</CardTitle>
-          <CardDescription>Sample view of the generated master timetable</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="grid" className="w-full">
-            <TabsList>
-              <TabsTrigger value="grid">Grid View</TabsTrigger>
-              <TabsTrigger value="list">List View</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="grid" className="space-y-4">
-              <div className="grid gap-4">
-                {sampleTimetable.map((day, dayIndex) => (
-                  <Card key={dayIndex} className="border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">{day.day}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {day.slots.map((slot, slotIndex) => (
-                        <div key={slotIndex} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="min-w-[60px]">
-                              {slot.time}
-                            </Badge>
-                            <div>
-                              <p className="font-medium">{slot.course}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {slot.faculty} • {slot.room}
-                              </p>
-                            </div>
-                          </div>
-                          <Badge variant={slot.type === "lab" ? "default" : "secondary"}>{slot.type}</Badge>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="list" className="space-y-2">
-              {result?.timetable.map((slot, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <Badge variant="outline">{slot.day}</Badge>
-                    <Badge variant="outline">{slot.time}</Badge>
-                    <div>
-                      <p className="font-medium">{slot.course}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {slot.faculty} • {slot.room}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant={slot.type === "lab" ? "default" : "secondary"}>{slot.type}</Badge>
+                  <Badge variant={step.status === "issues" ? "destructive" : "secondary"}>
+                    {step.status === "pending"
+                      ? "Pending"
+                      : step.status === "running"
+                        ? "In progress"
+                        : step.status === "issues"
+                          ? "Issues found"
+                          : "Done"}
+                  </Badge>
                 </div>
-              )) || <p className="text-center text-muted-foreground py-8">Generate a timetable to see results here</p>}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {universityTimetable && (
+      {conflicts.length > 0 && (
         <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle className="text-2xl text-center font-bold">TIME TABLE (Sem III, V, VII)</CardTitle>
-            <CardDescription className="text-center text-lg">
-              Session: July 2025 – November 2025 | Branch: {selectedBranch}
+            <CardTitle>Conflict Report</CardTitle>
+            <CardDescription>Review issues and autocorrect them</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Badge variant="destructive">Issues detected</Badge>
+                <span className="text-sm text-muted-foreground">
+                  Select rows and use Autocorrect All, or fix individually.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  disabled={applyingFix}
+                  onClick={() => setSelectedForBatch(Object.fromEntries(conflicts.map((c) => [c.id, true])))}
+                >
+                  Select All
+                </Button>
+                <Button onClick={autocorrectSelected} disabled={applyingFix}>
+                  {applyingFix ? "Applying fix..." : "Autocorrect All"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10"></TableHead>
+                    <TableHead>Issue</TableHead>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Affected Entities</TableHead>
+                    <TableHead>Proposed Fix</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {conflicts.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="w-10">
+                        <Checkbox
+                          checked={!!selectedForBatch[c.id]}
+                          onCheckedChange={(v) => setSelectedForBatch((prev) => ({ ...prev, [c.id]: !!v }))}
+                          aria-label={`Select conflict ${c.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{c.issue}</div>
+                        <div className="text-xs text-muted-foreground">{c.detail}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            c.severity === "High" ? "destructive" : c.severity === "Medium" ? "secondary" : "outline"
+                          }
+                        >
+                          {c.severity}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{c.entities}</TableCell>
+                      <TableCell className="text-sm">{c.proposed}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="ghost" onClick={() => autocorrectOne(c.id)}>
+                          Autocorrect
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConflicts([])}>
+                Reject
+              </Button>
+              <Button
+                onClick={async () => {
+                  // If any remaining selected, fix them first; then finalize
+                  if (Object.values(selectedForBatch).some(Boolean)) {
+                    await autocorrectSelected()
+                  }
+                  // ensure all resolved
+                  setConflicts([])
+                  await finalizeAfterFixes()
+                }}
+              >
+                Accept Fix
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {generatedReady && (
+        <Card className="border-0 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          <CardHeader>
+            <CardTitle>Generated Timetable</CardTitle>
+            <CardDescription>
+              Checks passed: 4/4 • Conflicts corrected: {changesApplied} • Changes applied: {changesApplied}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <div className="min-w-[1400px] bg-white rounded-lg border-2 border-gray-300">
-                {/* Header Row */}
-                <div className="grid grid-cols-9 border-b-2 border-gray-300">
-                  <div className="p-4 font-bold bg-gray-100 border-r-2 border-gray-300 text-center">PERIODS</div>
-                  <div className="p-4 font-bold bg-blue-50 border-r-2 border-gray-300 text-center">
-                    I<br />
-                    (9:00–10:00)
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Tabs defaultValue="grid">
+                <TabsList>
+                  <TabsTrigger value="grid" className="flex items-center gap-2">
+                    <GridIcon className="h-4 w-4" /> Grid view
+                  </TabsTrigger>
+                  <TabsTrigger value="list" className="flex items-center gap-2">
+                    <ListIcon className="h-4 w-4" /> Compact list
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="grid" className="pt-4">
+                  <TimetableReferenceGrid />
+                </TabsContent>
+                <TabsContent value="list" className="pt-4">
+                  <div className="space-y-2">
+                    <div className="rounded-md border p-3 text-sm">Mon 09:00 • R101 • ML</div>
+                    <div className="rounded-md border p-3 text-sm">Tue 10:00 • R201 • DB</div>
+                    <div className="rounded-md border p-3 text-sm">Wed 11:00 • Lab-101 • Lab</div>
                   </div>
-                  <div className="p-4 font-bold bg-blue-50 border-r-2 border-gray-300 text-center">
-                    II
-                    <br />
-                    (10:00–11:00)
-                  </div>
-                  <div className="p-4 font-bold bg-blue-50 border-r-2 border-gray-300 text-center">
-                    III
-                    <br />
-                    (11:00–12:00)
-                  </div>
-                  <div className="p-4 font-bold bg-blue-50 border-r-2 border-gray-300 text-center">
-                    IV
-                    <br />
-                    (12:00–1:00)
-                  </div>
-                  <div className="p-4 font-bold bg-yellow-100 border-r-2 border-gray-300 text-center">
-                    V<br />
-                    (1:00–2:30)
-                    <br />
-                    LUNCH
-                  </div>
-                  <div className="p-4 font-bold bg-blue-50 border-r-2 border-gray-300 text-center">
-                    VI
-                    <br />
-                    (2:30–3:30)
-                  </div>
-                  <div className="p-4 font-bold bg-blue-50 border-r-2 border-gray-300 text-center">
-                    VII
-                    <br />
-                    (3:30–4:30)
-                  </div>
-                  <div className="p-4 font-bold bg-blue-50 text-center">
-                    VIII
-                    <br />
-                    (4:30–5:30)
-                  </div>
-                </div>
-
-                {/* Days and Timetable Data */}
-                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
-                  <div key={day}>
-                    {/* Day Header */}
-                    <div className="grid grid-cols-9 border-b border-gray-300">
-                      <div className="p-3 font-bold bg-gray-200 border-r-2 border-gray-300 text-center row-span-3 flex items-center justify-center">
-                        {day.toUpperCase()}
-                      </div>
-                      {["I", "II", "III", "IV", "V", "VI", "VII", "VIII"].map((period) => (
-                        <div key={`${day}-${period}`} className="border-r border-gray-300 min-h-[120px]">
-                          {period === "V" ? (
-                            // Lunch break - merged cell
-                            <div className="h-full bg-yellow-50 flex items-center justify-center text-sm font-medium text-yellow-800">
-                              LUNCH
-                              <br />
-                              BREAK
-                            </div>
-                          ) : (
-                            // Regular periods with semester rows
-                            <div className="h-full">
-                              {["III", "V", "VII"].map((semester, semIndex) => {
-                                const slot = universityTimetable[day]?.[period]?.[semester]
-                                return (
-                                  <div
-                                    key={`${day}-${period}-${semester}`}
-                                    className={`h-10 border-b border-gray-200 p-1 text-xs ${getSemesterColor(semester as "III" | "V" | "VII")} ${
-                                      semIndex === 2 ? "border-b-0" : ""
-                                    }`}
-                                  >
-                                    {slot && !slot.isExtended && (
-                                      <div className="flex flex-col h-full justify-center">
-                                        <div className="flex items-center gap-1">
-                                          <span>{getTypeIcon(slot.type)}</span>
-                                          <span className="font-semibold">{slot.courseCode}</span>
-                                        </div>
-                                        <div className="font-medium">{slot.faculty}</div>
-                                        <div className="text-xs opacity-75">{slot.type}</div>
-                                      </div>
-                                    )}
-                                    {slot && slot.isExtended && (
-                                      <div className="flex flex-col h-full justify-center bg-gradient-to-r from-current to-transparent">
-                                        <div className="flex items-center gap-1">
-                                          <span>{getTypeIcon(slot.type)}</span>
-                                          <span className="font-semibold">{slot.courseCode}</span>
-                                          <span className="text-xs">→</span>
-                                        </div>
-                                        <div className="font-medium">{slot.faculty}</div>
-                                        <div className="text-xs opacity-75">{slot.type}</div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                </TabsContent>
+              </Tabs>
+              <div className="flex items-center gap-2">
+                <Button variant="outline">
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Download CSV
+                </Button>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button variant="outline">
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Export to ERP
+                </Button>
               </div>
             </div>
-
-            {/* Legend */}
-            <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-              <div className="space-y-2">
-                <h4 className="font-semibold">Session Types:</h4>
-                <div className="flex items-center gap-2">
-                  <span>📚</span>
-                  <span>Theory (T)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span>🔬</span>
-                  <span>Laboratory</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span>🛠️</span>
-                  <span>Project Lab</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h4 className="font-semibold">Semesters:</h4>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-violet-100 border border-violet-200 rounded"></div>
-                  <span>Semester III</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div>
-                  <span>Semester V</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-emerald-100 border border-emerald-200 rounded"></div>
-                  <span>Semester VII</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h4 className="font-semibold">Features:</h4>
-                <div className="text-xs space-y-1">
-                  <div>• No faculty conflicts</div>
-                  <div>• Extended lab sessions (→)</div>
-                  <div>• Lunch break (1:00-2:30)</div>
-                  <div>• Color-coded semesters</div>
-                </div>
-              </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="outline">Request Manual Edit</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // re-run entire flow with same inputs
+                  setGeneratedReady(false)
+                  setChangesApplied(0)
+                  runPrevalidation()
+                }}
+              >
+                Regenerate
+              </Button>
+              <Button>Accept Timetable</Button>
             </div>
           </CardContent>
         </Card>
       )}
+    </div>
+  )
+}
+
+type GenerationResult = {
+  success: boolean
+  conflicts: number
+  efficiency: number
+  facultyUtilization: number
+  roomUtilization: number
+  warnings: string[]
+  timetable: any[]
+}
+
+type UniversityMasterTimetable = {
+  // Mock timetable structure
+}
+
+type ConflictItem = {
+  id: number
+  issue: string
+  severity: "High" | "Medium" | "Low"
+  entities: string
+  proposed: string
+  detail: string
+}
+
+// Mock function to generate university timetable
+function generateUniversityTimetable(): UniversityMasterTimetable {
+  return {
+    // Mock timetable data
+  }
+}
+
+// Dedicated component that renders the reference-style timetable grid
+function TimetableReferenceGrid() {
+  return (
+    <div className="space-y-3">
+      {/* Header strip above the table to mirror the reference */}
+      <div className="flex items-start justify-between text-[11px] md:text-xs text-foreground">
+        <div className="font-medium">Session: July 2025 to November 2025</div>
+        <div className="font-semibold text-center flex-1">TIME TABLE (MDS-II, V, VII Semesters)</div>
+        <div className="font-medium">w.e.f. Date: 16th July 2025</div>
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-border bg-card">
+        <table className="w-full min-w-[1200px] table-fixed border-collapse text-[11px] md:text-xs">
+          <colgroup>
+            <col className="w-[90px]" /> {/* Day/Time */}
+            <col className="w-[56px]" /> {/* Sem */}
+            <col /> {/* I */}
+            <col /> {/* II */}
+            <col /> {/* III */}
+            <col /> {/* IV */}
+            <col className="w-[70px]" /> {/* LUNCH */}
+            <col /> {/* VI */}
+            <col /> {/* VII */}
+            <col /> {/* VIII */}
+          </colgroup>
+
+          <thead>
+            <tr className="bg-muted/60">
+              <th className="border border-border p-2 text-left">Day/ Time</th>
+              <th className="border border-border p-2 text-center">Sem</th>
+              <th className="border border-border p-2 text-center">I</th>
+              <th className="border border-border p-2 text-center">II</th>
+              <th className="border border-border p-2 text-center">III</th>
+              <th className="border border-border p-2 text-center">IV</th>
+              <th className="border border-border p-0 text-center align-middle">
+                <div className="h-full w-full flex items-center justify-center">
+                  <span className="-rotate-90 block tracking-wider text-[10px]">LUNCH</span>
+                </div>
+              </th>
+              <th className="border border-border p-2 text-center">VI</th>
+              <th className="border border-border p-2 text-center">VII</th>
+              <th className="border border-border p-2 text-center">VIII</th>
+            </tr>
+            <tr className="bg-muted/40">
+              <th className="border border-border p-2 text-left"> </th>
+              <th className="border border-border p-2 text-center"> </th>
+              <th className="border border-border p-2 text-center">9:00 AM</th>
+              <th className="border border-border p-2 text-center">10:00 AM</th>
+              <th className="border border-border p-2 text-center">11:00 AM</th>
+              <th className="border border-border p-2 text-center">12:00 Noon</th>
+              <th className="border border-border p-2 text-center">1:00–2:00 PM</th>
+              <th className="border border-border p-2 text-center">2:30 PM</th>
+              <th className="border border-border p-2 text-center">3:30 PM</th>
+              <th className="border border-border p-2 text-center">4:30 PM</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {/* MONDAY */}
+            <tr>
+              <td rowSpan={3} className="border border-border p-2 align-top font-medium">
+                MON
+              </td>
+              <td className="border border-border p-2 text-center">II</td>
+              <td className="border border-border p-2 bg-secondary/10">HUM-24251PY</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24287 SHP/RRR</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24212 MJ</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24213 JK</td>
+              <td className="border border-border p-2 bg-muted/40 text-center" rowSpan={3}></td>
+              <td className="border border-border p-2 bg-secondary/10" colSpan={2}>
+                MDS-24215 SD
+              </td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24215 PU+NRS Lab</td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">V</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-315 DD+RB Lab</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-413 DM</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-411 KSY</td>
+              <td className="border border-border p-2 bg-accent/10">HUM-451 MD</td>
+              <td className="border border-border p-2 bg-accent/10">—</td>
+              <td className="border border-border p-2 bg-accent/10" colSpan={2}>
+                Project Based Lab–2
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">VII</td>
+              <td className="border border-border p-2 bg-primary/10">HUM-24251 PY</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24287 SHP/RRR</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24212 MJ</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24213 JK</td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24215 SD</td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+            </tr>
+
+            {/* TUESDAY */}
+            <tr>
+              <td rowSpan={3} className="border border-border p-2 align-top font-medium">
+                TUE
+              </td>
+              <td className="border border-border p-2 text-center">II</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-313 DD</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-314 JK</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-2411 MS</td>
+              <td className="border border-border p-2 bg-secondary/10">ME-351</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24214 JKJ</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24215 SD</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-359 AAA</td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">V</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-457 PK</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-413 DM</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-411 KSY</td>
+              <td className="border border-border p-2 bg-accent/10">HUM-451 MD</td>
+              <td className="border border-border p-2 bg-accent/10">—</td>
+              <td className="border border-border p-2 bg-accent/10" colSpan={2}>
+                Project Based Lab–2
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">VII</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24251 PY</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24287 SHP/RRR</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24212 MJ</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24213 JK</td>
+              <td className="border border-border p-2 bg-primary/10" colSpan={2}>
+                MDS-311 CKV
+              </td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+            </tr>
+
+            {/* WEDNESDAY */}
+            <tr>
+              <td rowSpan={3} className="border border-border p-2 align-top font-medium">
+                WED
+              </td>
+              <td className="border border-border p-2 text-center">II</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24213 JK</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24211 MS</td>
+              <td className="border border-border p-2 bg-secondary/10">ME-351</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-412 SDA</td>
+              <td className="border border-border p-2 bg-secondary/10" colSpan={3}>
+                —
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">V</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-316 AAA + SK Lab</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-413 DM</td>
+              <td className="border border-border p-2 bg-accent/10">—</td>
+              <td className="border border-border p-2 bg-accent/10">ME-351</td>
+              <td className="border border-border p-2 bg-accent/10">HUM-24251 PY</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-24215 SD</td>
+              <td className="border border-border p-2 bg-accent/10">—</td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">VII</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24213 JK</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24211 MS</td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+              <td className="border border-border p-2 bg-primary/10">ME-351</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-314 JK</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-457 PK</td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+            </tr>
+
+            {/* THURSDAY */}
+            <tr>
+              <td rowSpan={3} className="border border-border p-2 align-top font-medium">
+                THU
+              </td>
+              <td className="border border-border p-2 text-center">II</td>
+              <td className="border border-border p-2 bg-secondary/10">Open Elective-1C</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24216 SP+SMY Lab</td>
+              <td className="border border-border p-2 bg-secondary/10">—</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-412 SDA</td>
+              <td className="border border-border p-2 bg-secondary/10" colSpan={3}>
+                —
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">V</td>
+              <td className="border border-border p-2 bg-accent/10">Open Elective-1C</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-412 SDA</td>
+              <td className="border border-border p-2 bg-accent/10">HUM-451 MD</td>
+              <td className="border border-border p-2 bg-accent/10">—</td>
+              <td className="border border-border p-2 bg-accent/10" colSpan={2}>
+                Project Based Lab–2
+              </td>
+              <td className="border border-border p-2 bg-accent/10">—</td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">VII</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24213 JKJ</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24211 MS</td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-312 CKV</td>
+              <td className="border border-border p-2 bg-primary/10">MDS-24213 JKJ</td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+            </tr>
+
+            {/* FRIDAY */}
+            <tr>
+              <td rowSpan={3} className="border border-border p-2 align-top font-medium">
+                FRI
+              </td>
+              <td className="border border-border p-2 text-center">II</td>
+              <td className="border border-border p-2 bg-secondary/10">Open Elective-1C</td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-24216 SP+NG Lab</td>
+              <td className="border border-border p-2 bg-secondary/10">—</td>
+              <td className="border border-border p-2 bg-secondary/10">—</td>
+              <td className="border border-border p-2 bg-secondary/10" colSpan={2}>
+                MDS-311 CKV (T)
+              </td>
+              <td className="border border-border p-2 bg-secondary/10">MDS-315 DD+RRS Lab</td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">V</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-314 JK</td>
+              <td className="border border-border p-2 bg-accent/10">MDS-359 AAA</td>
+              <td className="border border-border p-2 bg-accent/10">—</td>
+              <td className="border border-border p-2 bg-accent/10">—</td>
+              <td className="border border-border p-2 bg-accent/10" colSpan={3}>
+                —
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-border p-2 text-center">VII</td>
+              <td className="border border-border p-2 bg-primary/10" colSpan={2}>
+                MDS-414 DD+ SMY
+              </td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+              <td className="border border-border p-2 bg-primary/10">—</td>
+              <td className="border border-border p-2 bg-primary/10" colSpan={3}>
+                —
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-4 text-[11px] md:text-xs text-muted-foreground">
+        <div className="inline-flex items-center gap-2">
+          <span className="inline-block h-3 w-4 rounded-sm bg-secondary/30 ring-1 ring-border" /> Sem II
+        </div>
+        <div className="inline-flex items-center gap-2">
+          <span className="inline-block h-3 w-4 rounded-sm bg-accent/30 ring-1 ring-border" /> Sem V
+        </div>
+        <div className="inline-flex items-center gap-2">
+          <span className="inline-block h-3 w-4 rounded-sm bg-primary/20 ring-1 ring-border" /> Sem VII
+        </div>
+        <div className="ml-auto text-[10px]">Reference layout reproduced to match provided image.</div>
+      </div>
     </div>
   )
 }
