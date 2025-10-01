@@ -367,6 +367,7 @@ export function AIEngine() {
                     {step.status === "issues" && <AlertCircle className="h-4 w-4 text-red-600" aria-hidden />}
                     <span className="text-sm font-medium">{step.name}</span>
                   </div>
+<<<<<<< HEAD
                   <Badge variant={step.status === "issues" ? "destructive" : "secondary"}>
                     {step.status === "pending"
                       ? "Pending"
@@ -376,6 +377,56 @@ export function AIEngine() {
                           ? "Issues found"
                           : "Done"}
                   </Badge>
+=======
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <Button className="flex-1">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Approve & Finalize
+              </Button>
+              <Button variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
+              <Button variant="outline">
+                <Settings className="h-4 w-4 mr-2" />
+                Adjust Parameters
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sample Timetable Preview */}
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Generated Timetable Preview</CardTitle>
+          <CardDescription>Sample view of the generated master timetable</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="grid" className="w-full">
+            <TabsList>
+              <TabsTrigger value="list">List View</TabsTrigger>
+            </TabsList>
+            <TabsContent value="list" className="space-y-2">
+              {result?.timetable.map((slot, index) => (
+                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <Badge variant="outline">{slot.day}</Badge>
+                    <Badge variant="outline">{slot.time}</Badge>
+                    <div>
+                      <p className="font-medium">{slot.course}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {slot.faculty} • {slot.room}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={slot.type === "lab" ? "secondary" : "secondary"}>{slot.type}</Badge>
+>>>>>>> 519cb768b03a9c7a8c52fba6b799a0f138674528
                 </div>
               ))}
             </div>
