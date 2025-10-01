@@ -58,7 +58,6 @@ export function AdminDashboard() {
   ]
 
   return (
-<<<<<<< HEAD
     <div className="min-h-screen bg-background">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {/* Header */}
@@ -103,38 +102,6 @@ export function AdminDashboard() {
         <div className="container mx-auto px-4 py-8">
           {/* Previously: <Tabs value={activeTab} onValueChange={setActiveTab}> */}
           {/* Previously: <TabsList className="grid w-full grid-cols-7"> ... </TabsList> */}
-=======
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="h-16 border-b bg-card/50 backdrop-blur-sm flex items-center px-6 justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Welcome back, {user?.name}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="px-3 py-1">
-            {user?.role?.toUpperCase()}
-          </Badge>
-          <Button variant="outline" size="sm" onClick={logout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
-        </div>
-      </header>
-
-
-      <div className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="data">Data Management</TabsTrigger>
-            <TabsTrigger value="ai-engine">AI Engine</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="export">Export</TabsTrigger>
-            <TabsTrigger value="feedback">Feedback</TabsTrigger>
-          </TabsList>
->>>>>>> 519cb768b03a9c7a8c52fba6b799a0f138674528
 
           <TabsContent value="overview" className="space-y-8">
             {/* Stats Grid */}
@@ -291,14 +258,8 @@ export function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
-<<<<<<< HEAD
         </div>
       </Tabs>
-=======
-        </Tabs>
-      </div>
-
->>>>>>> 519cb768b03a9c7a8c52fba6b799a0f138674528
     </div>
   )
 }

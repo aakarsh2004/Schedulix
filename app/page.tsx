@@ -18,7 +18,7 @@ export default function HomePage() {
       </div>
     )
   }
-  return <AdminDashboard/>
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-card to-secondary/20">
@@ -83,10 +83,9 @@ export default function HomePage() {
       </div>
     )
   }
-  
 
   // Render appropriate dashboard based on user role
-  switch (user?.role) {
+  switch (user.role) {
     case "admin":
       return <AdminDashboard />
     case "faculty":
